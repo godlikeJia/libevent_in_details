@@ -1,0 +1,46 @@
+最简单的场景，使用 livevent 设置定时器，应用程序只需要执行下面几个简单的步骤即可。
+1）首先初始化 libevent 库，并保存返回的指针
+    struct event_base * base = event_init();
+    实际上这一步相当于初始化一个 Reactor 实例；在初始化 libevent 后，就可以注册事件了。
+
+2）初始化事件 event，设置回调函数和关注的事件
+    evtimer_set(&ev, timer_cb, NULL);
+    事实上这等价于调用 event_set(&ev, -1, 0, timer_cb, NULL);
+    event_set 的函数原型是：void event_set(struct event *ev, int fd, short event, void (*cb)(int, short, void *), void *arg)
+        ev：执行要初始化的 event 对象；
+        fd：该 event 绑定的“句柄”，对于信号事件，它就是关注的信号；
+        event：在该 fd 上关注的事件类型，它可以是 EV_READ, EV_WRITE, EV_SIGNAL；
+        cb：这是一个函数指针，当 fd 上的事件 event 发生时，调用该函数执行处理，它有三个参数，调用时由 event_base 负责传入，按顺序，实际上就是 event_set 时的 fd, event 和 arg；
+        arg：传递给 cb 函数指针的参数；
+    由于定时事件不需要 fd，并且定时事件是根据添加时（event_add）的超时值设定的，因此这里 event 也不需要设置。这一步相当于初始化一个 event handler，在 libevent 中事件类型保存在 event 结构体中。注意：libevent 并不会管理 event 事件集合，这需要应用程序自行管理；
+
+3）设置 event 从属的 event_base
+    event_base_set(base, &ev);
+    这一步相当于指明 event 要注册到哪个 event_base 实例上；
+
+4）是正式的添加事件的时候了
+    event_add(&ev, timeout);
+    基本信息都已设置完成，只要简单的调用 event_add()函数即可完成，其中 timeout 是定时值；
+    这一步相当于调用 Reactor::register_handler()函数注册事件。
+
+5）程序进入无限循环，等待就绪事件并执行事件处理
+    event_base_dispatch(base);
+
+struct event ev;
+struct timeval tv;
+
+void time_cb(int fd, short event, void *argc)
+{
+    printf("timer wakeup\n");
+    event_add(&ev, &tv); // reschedule timer
+}
+
+int main()
+{
+    struct event_base *base = event_init();
+    tv.tv_sec = 10; // 10s period
+    tv.tv_usec = 0;
+    evtimer_set(&ev, time_cb, NULL);
+    event_add(&ev, &tv);
+    event_base_dispatch(base);
+}

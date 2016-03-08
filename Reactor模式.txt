@@ -1,0 +1,42 @@
+Reactor模式
+1. 机制:
+    Reactor 逆置了事件处理流程，应用程序需要提供相应的接口并注册到 Reactor 上，如果相应的事件发生，Reactor 将主动调用应用程序注册的接口，这些接口又称为“回调函数”。使用 libevent 也是向 libevent 框架注册相应的事件和回调函数；当这些事件发生时，libevent 会调用这些回调函数处理相应的事件（I/O 读写、定时和信号）。
+
+2. 优点：
+    1）响应快，不必为单个同步时间所阻塞，虽然 Reactor 本身依然是同步的；
+    2）编程相对简单，可以最大程度的避免复杂的多线程及同步问题，并且避免了多线程/进程的切换开销；
+    3）可扩展性，可以方便的通过增加 Reactor 实例个数来充分利用 CPU 资源；
+    4）可复用性，reactor 框架本身与具体事件处理逻辑无关，具有很高的复用性；
+
+3. 框架:
+    使用 Reactor 模型，必备的几个组件：事件源、Reactor 框架、多路复用机制和事件处理程序
+    1）事件源 - 文件描述符，socket
+    2）事件多路分发机制 - select poll epoll，在libevent中用eventop进行封装
+    3）反应器 - libevent中event_base结构体
+    class Reactor
+    {
+        public:
+        int register_handler(Event_Handler *pHandler, int event);
+        int remove_handler(Event_Handler *pHandler, int event);
+        void handle_events(timeval *ptv);
+        // ...
+    };
+    4）事件处理程序 - libevent中event结构体
+    class Event_Handler
+    {
+        public:
+        virtual void handle_read() = 0;
+        virtual void handle_write() = 0;
+        virtual void handle_timeout() = 0;
+        virtual void handle_close() = 0;
+        virtual HANDLE get_handle() = 0;
+        // ...
+    };
+    class Event_Handler
+    {
+        public:
+        // events maybe read/write/timeout/close .etc
+        virtual void handle_events(int events) = 0;
+        virtual HANDLE get_handle() = 0;
+        // ...
+    };
